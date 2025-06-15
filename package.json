@@ -2,14 +2,11 @@
   "name": "expense-tracker",
   "private": true,
   "version": "0.0.0",
-  "homepage": "https://zekiah711.github.io/ExpenseTracker",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -28,6 +25,7 @@
     "eslint": "^9.25.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
+    "gh-pages": "^6.3.0",
     "globals": "^16.0.0",
     "postcss": "^8.5.5",
     "tailwindcss": "^4.1.10",
