@@ -1,0 +1,55 @@
+.nav-card {
+  max-width: 470px;
+  margin: 30px auto;
+  background-color: #dad8d8f9;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.176);
+  padding: 0.3rem;
+}
+
+.nav-btn-group {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.nav-btn {
+  flex: 1;
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 6px 12px;
+  border: 1px solid #dee2e6;
+  background-color: #dad8d8f9;
+  transition: all 0.2s ease;
+  text-align: center;
+  text-decoration: none;
+  color: #000;
+}
+
+.nav-btn:hover{
+  background-color: #c1c1c1f9;
+}
+
+.nav-btn.active {
+  background-color: #f2f6fa;
+  border: 1px solid #007bff;
+  color: #007bff;
+}
+
+
+.logout-btn {
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 6px 12px;
+  border: 1px solid #dee2e6;
+  background-color: #dad8d8f9;
+  color: #000;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.logout-btn:hover {
+  background-color: #f2f6fa;
+  border-color: #dc3545;
+  color: #dc3545;
+}

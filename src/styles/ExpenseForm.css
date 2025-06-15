@@ -1,0 +1,58 @@
+.form-title {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+}
+
+.add-item-cont{
+    width: 100%;
+    border-radius: 7px;
+    border: 1px dashed #6665665f;
+}
+
+.add-item {
+ width: 100%;
+  background: none;
+  border: none;
+  color: #666566;
+  cursor: pointer;
+  transition: background 0.5s ease;
+}
+
+.add-item:hover{
+    background:#572dca ;
+}
+
+/* Bottom section */
+.total-box p {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.total-box h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.total-box {
+  width: 100%;
+  background: linear-gradient(to right, #572dca, #9959bc);
+  padding: 0.9rem;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 3px 10px #2e176edb;
+}
+
+.save-record-btn{
+    background-color: #572dca;
+    border: none;
+    transition: background 0.5s ease;
+}
+
+.save-record-btn:hover{
+    background-color: #2c0d7f;
+}

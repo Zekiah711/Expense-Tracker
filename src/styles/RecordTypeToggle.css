@@ -1,0 +1,46 @@
+
+.toggle-buttons {
+  display: flex;
+  justify-content: center;
+  gap: .5rem;
+  padding: 0.4em;
+  width: 200px;
+  border-radius: 10px;
+  background-color: #dad8d8f9;
+  margin: 0 auto;
+}
+
+.toggle-btn {
+  padding: 8px 20px;
+  background-color: #dad8d8f9;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  color: #1f1f1f;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+  transition: all 0.3s ease;
+}
+
+
+.toggle-btn.expense:hover {
+  background-color: #f7a6a6;
+}
+
+.toggle-btn.sale:hover {
+  background-color: #7dd8a3;
+}
+
+/* Active styles */
+.toggle-btn.expense.active {
+  background-color: white;
+  color: #dc3545; /* Bootstrap red */
+  border-bottom: 1px solid #dc3545;
+  font-weight: 600;
+}
+
+.toggle-btn.sale.active {
+  background-color: white;
+  color: #198754; /* Bootstrap green */
+  border-bottom: 1px solid #198754;
+  font-weight: 600;
+}
