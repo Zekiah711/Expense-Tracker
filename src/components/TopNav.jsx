@@ -1,13 +1,20 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import '../styles/TopNav.css';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebase/firebase';
 
 export default function TopNav() {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (window.confirm('Are you sure you want to log out?')) {
-      localStorage.removeItem('loggedIn');
-      navigate('/');
+      try {
+        await signOut(auth); // ✅ Sign out from Firebase
+        navigate('/'); // Redirect to login
+      } catch (error) {
+        console.error('Logout Error:', error);
+        alert('Failed to log out. Please try again.');
+      }
     }
   };
 

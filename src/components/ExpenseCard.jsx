@@ -8,7 +8,7 @@ export default function ExpenseCard({ item }) {
           <small className="text-muted">{item.supplier}</small>
         </div>
         <div className="text-end">
-          <strong className="text-success">${(item.quantity * item.price).toFixed(2)}</strong><br />
+          <strong className="text-success">N{(item.quantity * item.price).toFixed(2)}</strong><br />
           <small className="text-muted">{item.date}</small>
         </div>
       </div>

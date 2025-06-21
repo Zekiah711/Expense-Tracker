@@ -194,7 +194,7 @@ const handleSave = async () => {
 
       <div className="rounded-4 text-white text-center p-4 mb-4 total-box">
         <p className="mb-1">Total Amount</p>
-        <h2 className="fw-bold">${overallTotal}</h2>
+        <h2 className="fw-bold">N{overallTotal}</h2>
       </div>
 
       <div className="text-center">
