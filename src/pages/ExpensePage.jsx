@@ -1,45 +1,65 @@
 import React, { useEffect, useState } from 'react';
 import TopNav from '../components/TopNav';
-import DetailsModal from '../components/DetailsModal'; // ✅ Import your modal component
+import DetailsModal from '../components/DetailsModal';
+import { getDatabase, ref, onValue, remove } from 'firebase/database';
+import { getAuth } from 'firebase/auth';
 
 export default function ExpensePage() {
   const [expenses, setExpenses] = useState([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All Time');
-
   const [showModal, setShowModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('expenses');
-    if (!saved) return;
-    const allExpenses = JSON.parse(saved);
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
 
-    const today = new Date();
+    const db = getDatabase();
+    const userRef = ref(db, `expenses/${user.uid}`);
 
-    const filtered = allExpenses.filter(entry => {
-      const entryDate = new Date(entry.date);
-      const isToday = entryDate.toDateString() === today.toDateString();
-      const isThisWeek = (today - entryDate) <= 7 * 24 * 60 * 60 * 1000;
-      const isThisMonth =
-        entryDate.getMonth() === today.getMonth() &&
-        entryDate.getFullYear() === today.getFullYear();
+    const unsubscribe = onValue(userRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) {
+        setExpenses([]);
+        return;
+      }
 
-      const matchesDate =
-        filter === 'All Time' ||
-        (filter === 'Today' && isToday) ||
-        (filter === 'This Week' && isThisWeek) ||
-        (filter === 'This Month' && isThisMonth);
+      // Add Firebase keys to each entry
+      const allExpenses = Object.entries(data).map(([key, value]) => ({
+        ...value,
+        _id: key
+      }));
 
-      const matchesSearch = entry.items.some(item =>
-        item.name.toLowerCase().includes(search.toLowerCase()) ||
-        item.supplier.toLowerCase().includes(search.toLowerCase())
-      );
+      const today = new Date();
 
-      return matchesDate && matchesSearch;
+      const filtered = allExpenses.filter(entry => {
+        const entryDate = new Date(entry.date);
+        const isToday = entryDate.toDateString() === today.toDateString();
+        const isThisWeek = (today - entryDate) <= 7 * 24 * 60 * 60 * 1000;
+        const isThisMonth =
+          entryDate.getMonth() === today.getMonth() &&
+          entryDate.getFullYear() === today.getFullYear();
+
+        const matchesDate =
+          filter === 'All Time' ||
+          (filter === 'Today' && isToday) ||
+          (filter === 'This Week' && isThisWeek) ||
+          (filter === 'This Month' && isThisMonth);
+
+        const matchesSearch = entry.items.some(item =>
+          item.name.toLowerCase().includes(search.toLowerCase()) ||
+          item.supplier.toLowerCase().includes(search.toLowerCase())
+        );
+
+        return matchesDate && matchesSearch;
+      });
+
+      setExpenses(filtered);
     });
 
-    setExpenses(filtered);
+    return () => unsubscribe();
   }, [filter, search]);
 
   const calculateTotalAmount = (expenseList) => {
@@ -55,25 +75,28 @@ export default function ExpensePage() {
 
   const totalAmount = calculateTotalAmount(expenses);
 
-  const handleDeleteEntry = (indexToRemove) => {
+  const handleDeleteEntry = (firebaseId) => {
     if (!window.confirm("Delete this expense entry?")) return;
 
-    const saved = localStorage.getItem('expenses');
-    if (!saved) return;
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
 
-    const allExpenses = JSON.parse(saved);
-    const target = expenses[indexToRemove];
-
-    const updated = allExpenses.filter(entry => JSON.stringify(entry) !== JSON.stringify(target));
-
-    localStorage.setItem('expenses', JSON.stringify(updated));
-    setExpenses(updated);
+    const db = getDatabase();
+    const entryRef = ref(db, `expenses/${user.uid}/${firebaseId}`);
+    remove(entryRef);
   };
 
   const handleClearAll = () => {
     if (!window.confirm("Clear all expense entries? This cannot be undone.")) return;
-    setExpenses([]);
-    localStorage.removeItem('expenses');
+
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const db = getDatabase();
+    const userRef = ref(db, `expenses/${user.uid}`);
+    remove(userRef);
   };
 
   const handleViewDetails = (entry) => {
@@ -136,7 +159,7 @@ export default function ExpensePage() {
 
             {expenses.length === 0 && <p className="text-muted">No expenses to show.</p>}
 
-            {expenses.map((entry, i) => {
+            {expenses.map((entry) => {
               const entryTotal = entry.items.reduce((sum, item) => {
                 const qty = parseFloat(item.quantity) || 0;
                 const price = parseFloat(item.price) || 0;
@@ -146,7 +169,7 @@ export default function ExpensePage() {
               const firstItem = entry.items[0];
 
               return (
-                <div key={i} className="p-3 mb-3 bg-white rounded shadow-sm border">
+                <div key={entry._id} className="p-3 mb-3 bg-white rounded shadow-sm border">
                   <div className="d-flex justify-content-between">
                     <div>
                       <strong className="mb-1 d-block">{firstItem?.name || 'Unnamed Item'}</strong>
@@ -169,7 +192,7 @@ export default function ExpensePage() {
                     </button>
                     <button
                       className="btn btn-sm btn-outline-danger"
-                      onClick={() => handleDeleteEntry(i)}
+                      onClick={() => handleDeleteEntry(entry._id)}
                     >
                       Delete Entry
                     </button>
@@ -187,7 +210,7 @@ export default function ExpensePage() {
         </div>
       </div>
 
-      {/* ✅ Use the shared modal component */}
+      {/* Modal */}
       <DetailsModal
         show={showModal}
         onClose={() => setShowModal(false)}

@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/ExpenseForm.css';
+import { ref, push } from 'firebase/database';
+import { db, auth } from '../firebase/firebase';
+
+
 
 export default function ExpenseForm({ recordType = 'Expense' }) {
   const [items, setItems] = useState([
@@ -14,7 +18,6 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
 
   const isSale = recordType === 'Sale';
   const label = isSale ? 'Customer' : 'Supplier';
-  const localStorageKey = isSale ? 'sales' : 'expenses';
 
   const addItem = () => {
     setItems([...items, { name: '', quantity: '', price: '', note: '', supplier: '' }]);
@@ -42,26 +45,41 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
     return sum + qty * price;
   }, 0).toFixed(2);
 
-  const handleSave = () => {
-    const isValid = date && items.every(item => item.name && item.quantity && item.price);
-    if (!isValid) {
-      alert("Please fill in all required fields before saving.");
-      return;
-    }
+// HANDLE SAVE FUNCTION BLOCK
+const handleSave = async () => {
+  const isValid = date && items.every(item => item.name && item.quantity && item.price);
+  if (!isValid) {
+    alert("Please fill in all required fields before saving.");
+    return;
+  }
 
+  const user = auth.currentUser;
+  console.log("auth user:", user);
+
+  if (!user) {
+    alert("You must be logged in to save records.");
+    return;
+  }
+
+  const entry = { date, items };
+  const path = recordType === 'Sale' ? `sales/${user.uid}` : `expenses/${user.uid}`; // 🔧 Dynamic path
+
+  try {
     setLoading(true);
-    setTimeout(() => {
-      const prev = JSON.parse(localStorage.getItem(localStorageKey)) || [];
-      const newEntry = { date, items };
-      const updated = [newEntry, ...prev];
-      localStorage.setItem(localStorageKey, JSON.stringify(updated));
+    await push(ref(db, path), entry);
+    setLoading(false);
+    alert(`${recordType} saved!`);
 
-      setLoading(false);
-      alert("Record saved!");
-      setItems([{ name: '', quantity: '', price: '', note: '', supplier: '' }]);
-      setDate('');
-    }, 1000);
-  };
+    setItems([{ name: '', quantity: '', price: '', note: '', supplier: '' }]);
+    setDate('');
+  } catch (error) {
+    console.error(`${recordType} Save Error:`, error);
+    alert(`Failed to save ${recordType.toLowerCase()}. Try again.`);
+    setLoading(false);
+  }
+};
+
+
 
   const handleSupplierChange = (index, value) => {
     if (value === 'custom') {

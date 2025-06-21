@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import TopNav from '../components/TopNav';
 import DetailsModal from '../components/DetailsModal';
+import { getDatabase, ref, onValue, remove } from 'firebase/database';
+import { getAuth } from 'firebase/auth';
 
 export default function SalesPage() {
   const [sales, setSales] = useState([]);
@@ -10,12 +12,59 @@ export default function SalesPage() {
   const [showModal, setShowModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
 
+  const [userId, setUserId] = useState(null);
+
   useEffect(() => {
-    const saved = localStorage.getItem('sales');
-    if (saved) {
-      setSales(JSON.parse(saved));
-    }
-  }, []);
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    setUserId(user.uid);
+
+    const db = getDatabase();
+    const userSalesRef = ref(db, `sales/${user.uid}`);
+
+    const unsubscribe = onValue(userSalesRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) {
+        setSales([]);
+        return;
+      }
+
+      const allSales = Object.entries(data).map(([key, value]) => ({
+        id: key,
+        ...value
+      }));
+
+      const today = new Date();
+
+      const filtered = allSales.filter(entry => {
+        const entryDate = new Date(entry.date);
+        const isToday = entryDate.toDateString() === today.toDateString();
+        const isThisWeek = (today - entryDate) <= 7 * 24 * 60 * 60 * 1000;
+        const isThisMonth =
+          entryDate.getMonth() === today.getMonth() &&
+          entryDate.getFullYear() === today.getFullYear();
+
+        const matchesDate =
+          filter === 'All Time' ||
+          (filter === 'Today' && isToday) ||
+          (filter === 'This Week' && isThisWeek) ||
+          (filter === 'This Month' && isThisMonth);
+
+        const matchesSearch = entry.items.some(item =>
+          item.name.toLowerCase().includes(search.toLowerCase()) ||
+          item.supplier?.toLowerCase().includes(search.toLowerCase())
+        );
+
+        return matchesDate && matchesSearch;
+      });
+
+      setSales(filtered);
+    });
+
+    return () => unsubscribe();
+  }, [filter, search]);
 
   const calculateTotalAmount = (salesList) => {
     return salesList.reduce((total, entry) => {
@@ -30,50 +79,25 @@ export default function SalesPage() {
 
   const totalAmount = calculateTotalAmount(sales);
 
-  const handleApply = () => {
-    const saved = localStorage.getItem('sales');
-    if (!saved) return;
-    const allSales = JSON.parse(saved);
-
-    const today = new Date();
-
-    const filtered = allSales.filter(entry => {
-      const entryDate = new Date(entry.date);
-      const isToday = entryDate.toDateString() === today.toDateString();
-      const isThisWeek = (today - entryDate) <= 7 * 24 * 60 * 60 * 1000;
-      const isThisMonth =
-        entryDate.getMonth() === today.getMonth() &&
-        entryDate.getFullYear() === today.getFullYear();
-
-      const matchesDate =
-        filter === 'All Time' ||
-        (filter === 'Today' && isToday) ||
-        (filter === 'This Week' && isThisWeek) ||
-        (filter === 'This Month' && isThisMonth);
-
-      const matchesSearch = entry.items.some(item =>
-        item.name.toLowerCase().includes(search.toLowerCase()) ||
-        item.supplier?.toLowerCase().includes(search.toLowerCase())
-      );
-
-      return matchesDate && matchesSearch;
-    });
-
-    setSales(filtered);
-  };
-
-  const handleDeleteEntry = (index) => {
+  const handleDeleteEntry = async (entryId) => {
     if (!window.confirm("Delete this sale entry?")) return;
-    const updated = [...sales];
-    updated.splice(index, 1);
-    setSales(updated);
-    localStorage.setItem('sales', JSON.stringify(updated));
+
+    try {
+      const db = getDatabase();
+      await remove(ref(db, `sales/${userId}/${entryId}`));
+    } catch (err) {
+      console.error("Delete error:", err);
+    }
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (!window.confirm("Clear all sale entries? This cannot be undone.")) return;
-    setSales([]);
-    localStorage.removeItem('sales');
+    try {
+      const db = getDatabase();
+      await remove(ref(db, `sales/${userId}`));
+    } catch (err) {
+      console.error("Clear all error:", err);
+    }
   };
 
   return (
@@ -83,7 +107,7 @@ export default function SalesPage() {
         <div className="card shadow p-4" style={{ width: '100%', maxWidth: '600px' }}>
           <h3 className="fw-bold text-center mb-4">My Sales</h3>
 
-          {/* Summary Card */}
+          {/* Summary */}
           <div
             className="rounded-4 text-white text-center p-4 mb-4"
             style={{
@@ -118,12 +142,9 @@ export default function SalesPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <button className="btn btn-outline-success w-100" onClick={handleApply}>
-              Apply
-            </button>
           </div>
 
-          {/* Sales List */}
+          {/* Sale Entries */}
           <div className="mt-4">
             <div className="d-flex justify-content-between align-items-center mb-2">
               <h6 className="fw-bold mb-0">Sale Entries</h6>
@@ -144,7 +165,7 @@ export default function SalesPage() {
               const firstItem = entry.items[0];
 
               return (
-                <div key={i} className="p-3 mb-3 bg-white rounded shadow-sm border">
+                <div key={entry.id} className="p-3 mb-3 bg-white rounded shadow-sm border">
                   <div className="d-flex justify-content-between">
                     <div>
                       <strong className="mb-1 d-block">{firstItem?.name || 'Unnamed Item'}</strong>
@@ -170,7 +191,7 @@ export default function SalesPage() {
                     </button>
                     <button
                       className="btn btn-sm btn-outline-danger"
-                      onClick={() => handleDeleteEntry(i)}
+                      onClick={() => handleDeleteEntry(entry.id)}
                     >
                       Delete Entry
                     </button>

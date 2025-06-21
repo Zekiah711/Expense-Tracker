@@ -3,20 +3,20 @@ import TopNav from '../components/TopNav';
 import RecordTypeToggle from '../components/RecordTypeToggle';
 import ExpenseForm from '../components/ExpenseForm';
 
-export default function Dashboard() {
-  const [type, setType] = useState(localStorage.getItem('recordType') || 'Expense');
+export default function MainDashboard() {
+  const [recordType, setRecordType] = useState(localStorage.getItem('recordType') || 'Expense');
 
   useEffect(() => {
-    localStorage.setItem('recordType', type);
-  }, [type]);
+    localStorage.setItem('recordType', recordType);
+  }, [recordType]);
 
   return (
     <>
       <TopNav />
       <div className="container d-flex justify-content-center my-4">
         <div className="card shadow p-4" style={{ width: '100%', maxWidth: '600px' }}>
-          <RecordTypeToggle type={type} setType={setType} />
-          <ExpenseForm recordType={type} />
+          <RecordTypeToggle type={recordType} setType={setRecordType} />
+          <ExpenseForm recordType={recordType} />
         </div>
       </div>
     </>

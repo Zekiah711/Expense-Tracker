@@ -1,4 +1,9 @@
-import { HashRouter as Router } from 'react-router-dom';;
+import {
+  HashRouter as Router,
+  Routes,
+  Route,
+  Navigate
+} from 'react-router-dom';
 import Login from './pages/Login';
 import MainDashboard from './pages/MainDashboard';
 import ExpensePage from './pages/ExpensePage';
@@ -11,10 +16,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Default route: redirect to dashboard if logged in, else login */}
         <Route path="/" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Login />} />
-
-        {/* Protected Routes */}
         <Route
           path="/dashboard"
           element={
