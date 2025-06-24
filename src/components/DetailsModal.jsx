@@ -24,7 +24,7 @@ export default function DetailsModal({ show, onClose, entry, title = "Details", 
                   <p><strong>Item Name:</strong> {item.name}</p>
                   <p><strong>Quantity:</strong> {item.quantity}</p>
                   <p><strong>Unit Price:</strong> N{price}</p>
-                  <p><strong>Total Amount:</strong> <span className="text-success">${total}</span></p>
+                  <p><strong>Total Amount:</strong> <span className="text-success">N{total}</span></p>
                   <p><strong>Date:</strong> {new Date(entry.date).toDateString()}</p>
                   <p><strong>{label} Name:</strong> {item.supplier}</p>
                   {item.note && <p><strong>Note:</strong> {item.note}</p>}

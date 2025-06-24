@@ -121,7 +121,7 @@ export default function ExpensePage() {
             }}
           >
             <p className="mb-1">Total Expenses</p>
-            <h2 className="fw-bold">${totalAmount}</h2>
+            <h2 className="fw-bold">N{totalAmount}</h2>
             <small className="text-white-70 fw-semibold">
               {filter === 'All Time' ? 'All Time' : filter}
             </small>
@@ -178,7 +178,7 @@ export default function ExpensePage() {
                       </div>
                     </div>
                     <div className="text-end">
-                      <div className="fw-bold text-danger mb-1">${entryTotal}</div>
+                      <div className="fw-bold text-danger mb-1">N{entryTotal}</div>
                       <div className="text-muted small">{new Date(entry.date).toDateString()}</div>
                     </div>
                   </div>
