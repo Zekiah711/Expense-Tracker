@@ -4,52 +4,74 @@ import { auth, provider, db } from '../firebase/firebase';
 import { ref, set } from 'firebase/database';
 import { useState } from 'react';
 
+
 export default function Login() {
   const navigate = useNavigate();
   const [businessName, setBusinessName] = useState('');
   const [emailOrPhone, setEmailOrPhone] = useState('');
+  const [authError, setAuthError] = useState('');
 
-  //  Manual login using Firebase Anonymous Auth
+  const saveToRxDB = async (userData) => {
+    try {
+      const dbInstance = await initDatabase();
+      await dbInstance.users.upsert(userData);
+    } catch (error) {
+      console.error('RxDB Save Error:', error);
+    }
+  };
+
+  // Manual Login
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     try {
       const result = await signInAnonymously(auth);
       const user = result.user;
 
-      // Save business info in Firebase DB
-      await set(ref(db, `users/${user.uid}`), {
+      const userData = {
+        uid: user.uid,
         businessName,
         contact: emailOrPhone,
         method: 'manual',
+        loginTime: new Date().toISOString()
+      };
+
+      await set(ref(db, `users/${user.uid}`), {
+        ...userData,
         createdAt: new Date().toISOString()
       });
 
+      await saveToRxDB(userData);
       navigate('/dashboard');
     } catch (error) {
       console.error('Manual Sign-In Error:', error);
-      alert('Manual sign-in failed. Please try again.');
+      setAuthError('Manual sign-in failed. Please try again.');
     }
   };
 
-  //  Google Sign-In
+  // Google Sign-In
   const handleGoogleSignIn = async () => {
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      // Save to DB if first-time user
-      await set(ref(db, `users/${user.uid}`), {
+      const userData = {
+        uid: user.uid,
         businessName: user.displayName || '',
-        email: user.email,
+        contact: user.email || '',
         method: 'google',
+        loginTime: new Date().toISOString()
+      };
+
+      await set(ref(db, `users/${user.uid}`), {
+        ...userData,
         createdAt: new Date().toISOString()
       });
 
+      await saveToRxDB(userData);
       navigate('/dashboard');
     } catch (error) {
       console.error('Google Sign-In Error:', error);
-      alert('Google sign-in failed.');
+      setAuthError('Unable to sign in with Google. Please try again.');
     }
   };
 
@@ -58,7 +80,13 @@ export default function Login() {
       <div className="card p-4 shadow" style={{ width: '21rem', minHeight: '26rem' }}>
         <h5 className="mb-4 pb-2 fs-4 border-bottom fw-bold">Enter Business Info</h5>
 
-        {/* 🔵 Manual Form Login */}
+        {authError && (
+          <div className="alert alert-danger fw-semibold small text-center">
+            {authError}
+          </div>
+        )}
+
+        {/* Manual Login */}
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="form-label fw-semibold">Business Name</label>
@@ -85,7 +113,7 @@ export default function Login() {
           </button>
         </form>
 
-        {/* 🔴 Google Login */}
+        {/* Google Login */}
         <button
           className="btn btn-light border d-flex align-items-center justify-content-center gap-2 w-100"
           onClick={handleGoogleSignIn}

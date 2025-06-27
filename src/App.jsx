@@ -13,6 +13,8 @@ import MainDashboard from './pages/MainDashboard';
 import ExpensePage from './pages/ExpensePage';
 import SalesPage from './pages/SalesPage';
 import PrivateRoute from './components/PrivateRoute';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(null); // null = still checking
@@ -62,6 +64,7 @@ function App() {
           }
         />
       </Routes>
+      <ToastContainer position="top-center" autoClose={3000} />
     </Router>
   );
 }

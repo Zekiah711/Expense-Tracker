@@ -1,4 +1,6 @@
 // components/ExpenseCard.jsx
+import currency from '../utils/currency';
+
 export default function ExpenseCard({ item }) {
   return (
     <div className="mb-3 p-3 border rounded shadow-sm bg-white">
@@ -8,7 +10,7 @@ export default function ExpenseCard({ item }) {
           <small className="text-muted">{item.supplier}</small>
         </div>
         <div className="text-end">
-          <strong className="text-success">N{(item.quantity * item.price).toFixed(2)}</strong><br />
+          <strong className="text-success">{currency.symbol}{(item.quantity * item.price).toFixed(2)}</strong><br />
           <small className="text-muted">{item.date}</small>
         </div>
       </div>
