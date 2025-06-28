@@ -254,7 +254,7 @@ export default function SalesPage() {
                     <div>
                       <strong className="mb-1 d-block">{entry.name || 'Unnamed Item'}</strong>
                       <div className="text-muted small mb-2">
-                        Customer: {entry.supplier || 'Unknown'}
+                        {entry.supplier || 'Unknown'}
                       </div>
                     </div>
                     <div className="text-end">

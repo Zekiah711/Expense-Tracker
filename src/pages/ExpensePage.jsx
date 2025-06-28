@@ -223,7 +223,7 @@ export default function ExpensePage() {
                   <div className="d-flex justify-content-between">
                     <div>
                       <strong className="mb-1 d-block">{entry.name || 'Unnamed Item'}</strong>
-                      <div className="text-muted small mb-2">Supplier: {entry.supplier || 'Unknown'}</div>
+                      <div className="text-muted small mb-2"> {entry.supplier || 'Unknown'}</div>
                     </div>
                     <div className="text-end">
                       <div className="fw-bold text-danger mb-1">{currency.symbol}{formatAmount(total)}</div>
