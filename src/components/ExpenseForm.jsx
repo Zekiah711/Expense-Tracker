@@ -28,7 +28,7 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
   const isSale = recordType === 'Sale';
   const label = isSale ? 'Customer' : 'Supplier';
 
-  // ✅ Sync suppliers/customers when recordType changes
+  // Sync suppliers/customers when recordType changes
   useEffect(() => {
     const localKey = isSale ? 'customers' : 'suppliers';
     const saved = localStorage.getItem(localKey);
@@ -59,54 +59,55 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
   };
 
   const handleSave = async () => {
-    const missingFields = [];
+  const missingFields = [];
 
-    if (!date) missingFields.push('Date');
+  if (!date) missingFields.push('Date');
 
-    items.forEach((item, index) => {
-      if (!item.name) missingFields.push(`Item Name (Item ${index + 1})`);
-      if (!item.quantity) missingFields.push(`Quantity (Item ${index + 1})`);
-      if (!item.price) missingFields.push(`Price (Item ${index + 1})`);
-      if (!item.supplier) missingFields.push(`${label} (Item ${index + 1})`);
+  items.forEach((item, index) => {
+    if (!item.name) missingFields.push(`Item Name (Item ${index + 1})`);
+    if (!item.quantity) missingFields.push(`Quantity (Item ${index + 1})`);
+    if (!item.price) missingFields.push(`Price (Item ${index + 1})`);
+    if (!item.supplier) missingFields.push(`${label} (Item ${index + 1})`);
+  });
+
+  if (missingFields.length > 0) {
+    toast.error(`Please fill in: ${missingFields.join(', ')}`);
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) {
+    toast.error("You must be logged in to save records.");
+    return;
+  }
+
+  try {
+    setLoading(true);
+    const dbRef = ref(db, isSale ? `sales/${user.uid}` : `expenses/${user.uid}`);
+
+    const savePromises = items.map(item => {
+      const fullSupplier = suppliers.find(s => s.name === item.supplier);
+      return push(dbRef, {
+        ...item,
+        supplierInfo: fullSupplier || {},
+        date: new Date(`${date}T00:00:00`).toISOString(), // ✅ This is the key fix
+        createdAt: new Date().toISOString(),
+        userId: user.uid
+      });
     });
 
-    if (missingFields.length > 0) {
-      toast.error(`Please fill in: ${missingFields.join(', ')}`);
-      return;
-    }
+    await Promise.all(savePromises);
+    toast.success(`${items.length} ${recordType.toLowerCase()} item${items.length > 1 ? 's' : ''} saved successfully.`);
+    setItems([{ name: '', quantity: '', price: '', note: '', supplier: '' }]);
+    setDate('');
+  } catch (error) {
+    console.error(`${recordType} Save Error:`, error);
+    toast.error(`Failed to save ${recordType.toLowerCase()} items. Try again.`);
+  } finally {
+    setLoading(false);
+  }
+};
 
-    const user = auth.currentUser;
-    if (!user) {
-      toast.error("You must be logged in to save records.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const dbRef = ref(db, isSale ? `sales/${user.uid}` : `expenses/${user.uid}`);
-
-      const savePromises = items.map(item => {
-        const fullSupplier = suppliers.find(s => s.name === item.supplier);
-        return push(dbRef, {
-          ...item,
-          supplierInfo: fullSupplier || {},
-          date,
-          createdAt: new Date().toISOString(),
-          userId: user.uid
-        });
-      });
-
-      await Promise.all(savePromises);
-      toast.success(`${items.length} ${recordType.toLowerCase()} item${items.length > 1 ? 's' : ''} saved successfully.`);
-      setItems([{ name: '', quantity: '', price: '', note: '', supplier: '' }]);
-      setDate('');
-    } catch (error) {
-      console.error(`${recordType} Save Error:`, error);
-      toast.error(`Failed to save ${recordType.toLowerCase()} items. Try again.`);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const overallTotal = items.reduce((sum, item) => {
     const qty = parseFloat(item.quantity) || 0;

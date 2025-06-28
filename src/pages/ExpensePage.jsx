@@ -1,16 +1,18 @@
+// Updated ExpensePage.jsx using logic from SalesPage
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import TopNav from '../components/TopNav';
 import DetailsModal from '../components/DetailsModal';
 import currency from '../utils/currency';
-import { getDatabase, ref, get, remove } from 'firebase/database';
-import { auth } from '../firebase/firebase';
+import { getDatabase, ref, remove, get } from 'firebase/database';
+import { getAuth } from 'firebase/auth';
 
 const LOCAL_KEY = 'todays_expenses';
 
 const getTodayExpensesFromLocal = () => {
   const data = localStorage.getItem(LOCAL_KEY);
   if (!data) return null;
+
   try {
     const parsed = JSON.parse(data);
     const today = new Date().toDateString();
@@ -20,6 +22,7 @@ const getTodayExpensesFromLocal = () => {
   } catch {
     return null;
   }
+
   return null;
 };
 
@@ -36,50 +39,67 @@ export default function ExpensePage() {
   const [expenses, setExpenses] = useState([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('Today');
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
+  const [customRange, setCustomRange] = useState({ start: '', end: '' });
   const [showModal, setShowModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
+  const formatAmount = (amount) => Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2 });
 
   useEffect(() => {
     const loadExpenses = async () => {
+      const auth = getAuth();
       const user = auth.currentUser;
       if (!user) return;
 
-      const cached = getTodayExpensesFromLocal();
-      if (filter === 'Today' && !search && cached) {
-        setExpenses(cached);
-        return;
+      const db = getDatabase();
+      const userRef = ref(db, `expenses/${user.uid}`);
+
+      let useCache = false;
+      let cached = [];
+
+      if (filter === 'Today' && !search) {
+        const local = getTodayExpensesFromLocal();
+        if (local) {
+          cached = local;
+          useCache = true;
+        }
       }
 
-      const firebaseDB = getDatabase();
-      const userRef = ref(firebaseDB, `expenses/${user.uid}`);
-      const snapshot = await get(userRef);
-      const data = snapshot.val();
+      try {
+        const snapshot = await get(userRef);
+        const data = snapshot.val();
 
-      if (data) {
-        const dataArray = Object.entries(data).map(([id, value]) => ({ ...value, id }));
+        if (!data && useCache) {
+          setExpenses(cached);
+          return;
+        }
+
+        if (!data) {
+          setExpenses([]);
+          return;
+        }
+
+        const allExpenses = Object.entries(data).map(([key, value]) => ({ ...value, id: key }));
         const today = new Date();
+        const startDate = new Date(customRange.start);
+        const endDate = new Date(customRange.end);
 
-        const filtered = dataArray.filter(item => {
-          const entryDate = new Date(item.date);
+        const filtered = allExpenses.filter((entry) => {
+          const entryDate = new Date(entry.date);
           const isToday = entryDate.toDateString() === today.toDateString();
           const isThisWeek = (today - entryDate) <= 7 * 24 * 60 * 60 * 1000;
-          const isThisMonth =
-            entryDate.getMonth() === today.getMonth() &&
-            entryDate.getFullYear() === today.getFullYear();
+          const isThisMonth = entryDate.getMonth() === today.getMonth() && entryDate.getFullYear() === today.getFullYear();
+          const isCustomRange = filter === 'Custom Range' && customRange.start && customRange.end && entryDate >= startDate && entryDate <= endDate;
 
           const matchesDate =
             filter === 'All Time' ||
             (filter === 'Today' && isToday) ||
             (filter === 'This Week' && isThisWeek) ||
             (filter === 'This Month' && isThisMonth) ||
-            (filter === 'Custom Date Range' && customStart && customEnd &&
-              entryDate >= new Date(customStart) && entryDate <= new Date(customEnd));
+            isCustomRange;
 
           const matchesSearch =
-            item.name?.toLowerCase().includes(search.toLowerCase()) ||
-            item.supplier?.toLowerCase().includes(search.toLowerCase());
+            (entry.name?.toLowerCase() || '').includes(search.toLowerCase()) ||
+            (entry.supplier?.toLowerCase() || '').includes(search.toLowerCase());
 
           return matchesDate && matchesSearch;
         });
@@ -89,18 +109,21 @@ export default function ExpensePage() {
         if (filter === 'Today' && !search) {
           saveTodayExpensesToLocal(filtered);
         }
-      } else {
-        setExpenses([]);
+      } catch (err) {
+        console.error('Error loading expenses:', err);
+        if (useCache) {
+          setExpenses(cached);
+        }
       }
     };
 
     loadExpenses();
-  }, [filter, search, customStart, customEnd]);
+  }, [filter, search, customRange]);
 
-  const totalAmount = expenses.reduce((sum, item) => {
-    const qty = parseFloat(item.quantity) || 0;
-    const price = parseFloat(item.price) || 0;
-    return sum + qty * price;
+  const totalAmount = expenses.reduce((total, entry) => {
+    const qty = parseFloat(entry.quantity) || 0;
+    const price = parseFloat(entry.price) || 0;
+    return total + qty * price;
   }, 0).toFixed(2);
 
   const handleDeleteEntry = async (id) => {
@@ -112,23 +135,32 @@ export default function ExpensePage() {
             className="btn btn-sm btn-danger"
             onClick={async () => {
               toast.dismiss(toastId);
-              const user = auth.currentUser;
-              if (!user) return;
-              const firebaseDB = getDatabase();
-              const itemRef = ref(firebaseDB, `expenses/${user.uid}/${id}`);
-              await remove(itemRef);
-              const updated = expenses.filter(item => item.id !== id);
-              setExpenses(updated);
-              toast.success('Expense entry deleted successfully.');
+              try {
+                const user = getAuth().currentUser;
+                if (!user) return;
 
-              if (filter === 'Today' && !search) {
-                saveTodayExpensesToLocal(updated);
+                const itemRef = ref(getDatabase(), `expenses/${user.uid}/${id}`);
+                await remove(itemRef);
+
+                const updated = expenses.filter(item => item.id !== id);
+                setExpenses(updated);
+                toast.success('Expense entry deleted successfully.');
+
+                if (filter === 'Today' && !search) {
+                  saveTodayExpensesToLocal(updated);
+                }
+              } catch (err) {
+                toast.error('Failed to delete the expense. Please try again.');
+                console.error('Delete Expense Error:', err);
               }
             }}
           >
             Yes, Delete
           </button>
-          <button className="btn btn-sm btn-secondary" onClick={() => toast.dismiss(toastId)}>
+          <button
+            className="btn btn-sm btn-secondary"
+            onClick={() => toast.dismiss(toastId)}
+          >
             Cancel
           </button>
         </div>
@@ -141,11 +173,6 @@ export default function ExpensePage() {
     );
   };
 
-  const handleViewDetails = (entry) => {
-    setSelectedEntry(entry);
-    setShowModal(true);
-  };
-
   return (
     <>
       <TopNav />
@@ -153,102 +180,60 @@ export default function ExpensePage() {
         <div className="card shadow p-4" style={{ width: '100%', maxWidth: '600px' }}>
           <h3 className="fw-bold text-center mb-4">My Expenses</h3>
 
-          {/* Summary */}
-          <div
-            className="rounded-4 text-white text-center p-4 mb-4"
-            style={{
-              background: 'linear-gradient(to right, rgb(230, 48, 48), rgb(245, 116, 116))',
-              borderRadius: '1.5rem',
-              boxShadow: '0 3px 10px rgba(140, 17, 17, 0.69)'
-            }}
-          >
+          <div className="rounded-4 text-white text-center p-4 mb-4" style={{ background: 'linear-gradient(to right, rgb(230, 48, 48), rgb(245, 116, 116))', borderRadius: '1.5rem', boxShadow: '0 3px 10px rgba(140, 17, 17, 0.69)' }}>
             <p className="mb-1">Total Expenses</p>
-            <h2 className="fw-bold">
-              {currency.symbol}{Number(totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </h2>
-            <small className="text-white-70 fw-semibold">
-              {filter === 'All Time' ? 'All Time' : filter}
-            </small>
+            <h2 className="fw-bold">{currency.symbol}{formatAmount(totalAmount)}</h2>
+            <small className="text-white-70 fw-semibold">{filter === 'All Time' ? 'All Time' : filter}</small>
           </div>
 
-          {/* Filter + Search */}
           <div className="mb-3">
-            <select
-              className="form-select mb-2"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            >
+            <select className="form-select mb-2" value={filter} onChange={(e) => setFilter(e.target.value)}>
               <option>Today</option>
               <option>This Week</option>
               <option>This Month</option>
               <option>All Time</option>
-              <option>Custom Date Range</option>
+              <option>Custom Range</option>
             </select>
 
-            {filter === 'Custom Date Range' && (
-              <div className="mb-2 d-flex gap-2">
-                <input
-                  type="date"
-                  className="form-control"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                />
-                <input
-                  type="date"
-                  className="form-control"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                />
+            {filter === 'Custom Range' && (
+              <div className="d-flex gap-2 mb-2">
+                <input type="date" className="form-control" value={customRange.start} onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))} />
+                <input type="date" className="form-control" value={customRange.end} onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))} />
               </div>
             )}
 
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search by item or supplier..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+            <input type="text" className="form-control mb-2" placeholder="Search by item or supplier..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
 
-          {/* Expense List */}
           <div className="mt-4">
             <div className="d-flex justify-content-between align-items-center mb-2">
               <h6 className="fw-bold mb-0">Expense Entries</h6>
-              <span className="badge bg-light text-dark">
-                {expenses.length} {expenses.length === 1 ? 'Entry' : 'Entries'}
-              </span>
+              <span className="badge bg-light text-dark">{expenses.length} {expenses.length === 1 ? 'Entry' : 'Entries'}</span>
             </div>
 
             {expenses.length === 0 && <p className="text-muted">No expenses to show.</p>}
 
-            {expenses.map((item) => {
-              const total = (parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0);
+            {expenses.map((entry) => {
+              const qty = parseFloat(entry.quantity) || 0;
+              const price = parseFloat(entry.price) || 0;
+              const total = qty * price;
 
               return (
-                <div key={item.id} className="p-3 mb-3 bg-white rounded shadow-sm border">
+                <div key={entry.id} className="p-3 mb-3 bg-white rounded shadow-sm border">
                   <div className="d-flex justify-content-between">
                     <div>
-                      <strong className="mb-1 d-block">{item.name || 'Unnamed Item'}</strong>
-                      <div className="text-muted small mb-2">
-                        Supplier: {item.supplier || 'Unknown'}
-                      </div>
+                      <strong className="mb-1 d-block">{entry.name || 'Unnamed Item'}</strong>
+                      <div className="text-muted small mb-2">Supplier: {entry.supplier || 'Unknown'}</div>
                     </div>
                     <div className="text-end">
-                      <div className="fw-bold text-danger mb-1">
-                        {currency.symbol}{Number(total.toFixed(2)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </div>
-                      <div className="text-muted small">{new Date(item.date).toDateString()}</div>
+                      <div className="fw-bold text-danger mb-1">{currency.symbol}{formatAmount(total)}</div>
+                      <div className="text-muted small">{entry.date ? new Date(entry.date).toDateString() : 'No Date'}</div>
                     </div>
                   </div>
 
                   <div className="d-flex justify-content-between align-items-center mt-3">
-                    <button className="btn btn-sm btn-outline-primary" onClick={() => handleViewDetails(item)}>
-                      Details
-                    </button>
-                    <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteEntry(item.id)}>
-                      Delete Entry
-                    </button>
+                    <button className="btn btn-sm btn-outline-primary" onClick={() => { setSelectedEntry(entry); setShowModal(true); }}>Details</button>
+                    <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteEntry(entry.id)}>Delete Entry</button>
                   </div>
                 </div>
               );
@@ -257,11 +242,7 @@ export default function ExpensePage() {
         </div>
       </div>
 
-      <DetailsModal
-        show={showModal}
-        onClose={() => setShowModal(false)}
-        entry={selectedEntry}
-      />
+      <DetailsModal show={showModal} onClose={() => setShowModal(false)} entry={selectedEntry} type="expense" title="Expense Details" />
     </>
   );
 }
