@@ -7,25 +7,36 @@ import { toast } from 'react-toastify';
 
 export default function ExpenseForm({ recordType = 'Expense' }) {
   const [items, setItems] = useState([
-    { name: '', quantity: '', price: '', note: '', partyName: '', partyLocation: '', partyPhone: '' }
+    { name: '', quantity: '', price: '', note: '', partyName: '', partyLocation: '', partyPhone: '', partyEmail: '' }
   ]);
 
   const getToday = () => new Date().toISOString().slice(0, 10);
-  const [date, setDate] = useState(getToday());
+  const [date, setDate] = useState(getToday);
   const [loading, setLoading] = useState(false);
 
   const isSale = recordType === 'Sale';
   const label = isSale ? 'Customer' : 'Supplier';
+
   const storageKey = `${recordType.toLowerCase()}Parties`;
   const [partyOptions, setPartyOptions] = useState([]);
 
   const [showModal, setShowModal] = useState(false);
-  const [newPartyName, setNewPartyName] = useState('');
+  const [newPartyData, setNewPartyData] = useState({ name: '', phone: '', location: '', email: '' });
   const [activeItemIndex, setActiveItemIndex] = useState(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(storageKey);
-    if (stored) setPartyOptions(JSON.parse(stored));
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        const normalized = parsed.map(p =>
+          typeof p === 'string' ? { name: p, phone: '', location: '', email: '' } : p
+        );
+        setPartyOptions(normalized);
+      } catch {
+        setPartyOptions([]);
+      }
+    }
   }, [storageKey]);
 
   useEffect(() => {
@@ -33,7 +44,7 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
   }, [partyOptions, storageKey]);
 
   const addItem = () => {
-    setItems([...items, { name: '', quantity: '', price: '', note: '', partyName: '', partyLocation: '', partyPhone: '' }]);
+    setItems([...items, { name: '', quantity: '', price: '', note: '', partyName: '', partyLocation: '', partyPhone: '', partyEmail: '' }]);
   };
 
   const deleteItem = (indexToDelete) => {
@@ -73,10 +84,6 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
       setLoading(true);
       const dbRef = ref(db, isSale ? `sales/${user.uid}` : `expenses/${user.uid}`);
 
-      const isoDate = new Date(date);
-      isoDate.setUTCHours(0, 0, 0, 0);
-      const formattedDate = isoDate.toISOString();
-
       const savePromises = items.map(item => {
         return push(dbRef, {
           name: item.name,
@@ -84,9 +91,10 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
           price: parseFloat(item.price),
           note: item.note || '',
           partyName: item.partyName,
-          partyLocation: item.partyLocation,
           partyPhone: item.partyPhone,
-          date: formattedDate,
+          partyLocation: item.partyLocation,
+          partyEmail: item.partyEmail,
+          date,
           createdAt: new Date().toISOString(),
           userId: user.uid
         });
@@ -95,7 +103,7 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
       await Promise.all(savePromises);
       toast.success(`${items.length} ${recordType.toLowerCase()} item${items.length > 1 ? 's' : ''} saved successfully.`);
 
-      setItems([{ name: '', quantity: '', price: '', note: '', partyName: '', partyLocation: '', partyPhone: '' }]);
+      setItems([{ name: '', quantity: '', price: '', note: '', partyName: '', partyLocation: '', partyPhone: '', partyEmail: '' }]);
       setDate(getToday());
     } catch (error) {
       console.error(`${recordType} Save Error:`, error);
@@ -151,7 +159,7 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
                   onChange={(e) => handleChange(index, 'quantity', e.target.value)}
                 />
               </div>
-              <div className="col-md-3 mb-2 d-flex flex-column">
+              <div className="col-md-3 mb-2">
                 <label className="form-label">Unit Price</label>
                 <input
                   type="number"
@@ -160,7 +168,6 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
                   value={item.price}
                   onChange={(e) => handleChange(index, 'price', e.target.value)}
                 />
-                <small className="text-muted">per item</small>
               </div>
             </div>
           </div>
@@ -189,41 +196,25 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
                 const value = e.target.value;
                 if (value === '__add_new__') {
                   setActiveItemIndex(index);
-                  setNewPartyName('');
+                  setNewPartyData({ name: '', phone: '', location: '', email: '' });
                   setShowModal(true);
                 } else {
-                  handleChange(index, 'partyName', value);
+                  const selected = partyOptions.find(p => p.name === value);
+                  if (selected) {
+                    handleChange(index, 'partyName', selected.name);
+                    handleChange(index, 'partyPhone', selected.phone);
+                    handleChange(index, 'partyLocation', selected.location);
+                    handleChange(index, 'partyEmail', selected.email || '');
+                  }
                 }
               }}
             >
               <option value="">Select {label.toLowerCase()} name</option>
               {partyOptions.map((option, i) => (
-                <option key={i} value={option}>{option}</option>
+                <option key={i} value={option.name}>{option.name}</option>
               ))}
               <option value="__add_new__">+ Add New {label}</option>
             </select>
-          </div>
-
-          <div className="mb-3">
-            <label className="form-label">{label} Phone</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder={`Enter ${label.toLowerCase()} phone`}
-              value={item.partyPhone}
-              onChange={(e) => handleChange(index, 'partyPhone', e.target.value)}
-            />
-          </div>
-
-          <div className="mb-3">
-            <label className="form-label">{label} Location</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder={`Enter ${label.toLowerCase()} location`}
-              value={item.partyLocation}
-              onChange={(e) => handleChange(index, 'partyLocation', e.target.value)}
-            />
           </div>
         </div>
       ))}
@@ -262,7 +253,6 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
         </button>
       </div>
 
-      {/* Add New Party Modal */}
       {showModal && (
         <div className="modal fade show d-block" tabIndex="-1" role="dialog" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-dialog-centered" role="document">
@@ -274,10 +264,31 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
               <div className="modal-body">
                 <input
                   type="text"
-                  className="form-control"
-                  placeholder={`Enter new ${label.toLowerCase()} name`}
-                  value={newPartyName}
-                  onChange={(e) => setNewPartyName(e.target.value)}
+                  className="form-control mb-2"
+                  placeholder={`Name of ${label.toLowerCase()}`}
+                  value={newPartyData.name}
+                  onChange={(e) => setNewPartyData({ ...newPartyData, name: e.target.value })}
+                />
+                <input
+                  type="text"
+                  className="form-control mb-2"
+                  placeholder="Phone number"
+                  value={newPartyData.phone}
+                  onChange={(e) => setNewPartyData({ ...newPartyData, phone: e.target.value })}
+                />
+                <input
+                  type="text"
+                  className="form-control mb-2"
+                  placeholder="Location"
+                  value={newPartyData.location}
+                  onChange={(e) => setNewPartyData({ ...newPartyData, location: e.target.value })}
+                />
+                <input
+                  type="email"
+                  className="form-control mb-2"
+                  placeholder="Email (optional)"
+                  value={newPartyData.email}
+                  onChange={(e) => setNewPartyData({ ...newPartyData, email: e.target.value })}
                 />
               </div>
               <div className="modal-footer">
@@ -286,16 +297,25 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
                   type="button"
                   className="btn btn-primary"
                   onClick={() => {
-                    const trimmed = newPartyName.trim();
-                    if (trimmed && !partyOptions.includes(trimmed)) {
-                      setPartyOptions(prev => [...prev, trimmed]);
-                    }
-                    if (activeItemIndex !== null) {
-                      handleChange(activeItemIndex, 'partyName', trimmed);
+                    const trimmedName = newPartyData.name.trim();
+                    if (trimmedName && !partyOptions.some(p => p.name === trimmedName)) {
+                      const newEntry = {
+                        name: trimmedName,
+                        phone: newPartyData.phone.trim(),
+                        location: newPartyData.location.trim(),
+                        email: newPartyData.email.trim()
+                      };
+                      setPartyOptions(prev => [...prev, newEntry]);
+                      if (activeItemIndex !== null) {
+                        handleChange(activeItemIndex, 'partyName', newEntry.name);
+                        handleChange(activeItemIndex, 'partyPhone', newEntry.phone);
+                        handleChange(activeItemIndex, 'partyLocation', newEntry.location);
+                        handleChange(activeItemIndex, 'partyEmail', newEntry.email);
+                      }
                     }
                     setShowModal(false);
                   }}
-                  disabled={!newPartyName.trim()}
+                  disabled={!newPartyData.name.trim()}
                 >
                   Save
                 </button>
