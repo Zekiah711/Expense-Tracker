@@ -69,9 +69,9 @@ export default function TopNav() {
       </div>
 
       {/* Logout button */}
-      <button className="logout-btn" onClick={handleLogout}>
+      {/* <button className="logout-btn" onClick={handleLogout}>
         Logout
-      </button>
+      </button> */}
     </div>
   );
 }

@@ -1,4 +1,3 @@
-// Updated ExpensePage.jsx using logic from SalesPage
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import TopNav from '../components/TopNav';
@@ -9,14 +8,16 @@ import { getAuth } from 'firebase/auth';
 
 const LOCAL_KEY = 'todays_expenses';
 
+const getTodayDateString = () =>
+  new Date().toLocaleDateString('en-CA'); // Local YYYY-MM-DD
+
 const getTodayExpensesFromLocal = () => {
   const data = localStorage.getItem(LOCAL_KEY);
   if (!data) return null;
 
   try {
     const parsed = JSON.parse(data);
-    const today = new Date().toDateString();
-    if (parsed.date === today) {
+    if (parsed.date === getTodayDateString()) {
       return parsed.expenses;
     }
   } catch {
@@ -27,9 +28,8 @@ const getTodayExpensesFromLocal = () => {
 };
 
 const saveTodayExpensesToLocal = (expenses) => {
-  const today = new Date().toDateString();
   const payload = {
-    date: today,
+    date: getTodayDateString(),
     expenses,
   };
   localStorage.setItem(LOCAL_KEY, JSON.stringify(payload));
@@ -42,7 +42,9 @@ export default function ExpensePage() {
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
   const [showModal, setShowModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
-  const formatAmount = (amount) => Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2 });
+
+  const formatAmount = (amount) =>
+    Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2 });
 
   useEffect(() => {
     const loadExpenses = async () => {
@@ -78,17 +80,29 @@ export default function ExpensePage() {
           return;
         }
 
-        const allExpenses = Object.entries(data).map(([key, value]) => ({ ...value, id: key }));
-        const today = new Date();
-        const startDate = new Date(customRange.start);
-        const endDate = new Date(customRange.end);
+        const allExpenses = Object.entries(data).map(([key, value]) => ({
+          ...value,
+          id: key,
+        }));
+
+        const todayStr = getTodayDateString();
+        const startDateStr = customRange.start;
+        const endDateStr = customRange.end;
 
         const filtered = allExpenses.filter((entry) => {
-          const entryDate = new Date(entry.date);
-          const isToday = entryDate.toDateString() === today.toDateString();
-          const isThisWeek = (today - entryDate) <= 7 * 24 * 60 * 60 * 1000;
-          const isThisMonth = entryDate.getMonth() === today.getMonth() && entryDate.getFullYear() === today.getFullYear();
-          const isCustomRange = filter === 'Custom Range' && customRange.start && customRange.end && entryDate >= startDate && entryDate <= endDate;
+          const entryDateStr = new Date(entry.date).toLocaleDateString('en-CA');
+
+          const isToday = entryDateStr === todayStr;
+          const isThisWeek =
+            (new Date() - new Date(entry.date)) <= 7 * 24 * 60 * 60 * 1000;
+          const isThisMonth =
+            todayStr.slice(0, 7) === entryDateStr.slice(0, 7);
+          const isCustomRange =
+            filter === 'Custom Range' &&
+            startDateStr &&
+            endDateStr &&
+            entryDateStr >= startDateStr &&
+            entryDateStr <= endDateStr;
 
           const matchesDate =
             filter === 'All Time' ||
@@ -120,11 +134,13 @@ export default function ExpensePage() {
     loadExpenses();
   }, [filter, search, customRange]);
 
-  const totalAmount = expenses.reduce((total, entry) => {
-    const qty = parseFloat(entry.quantity) || 0;
-    const price = parseFloat(entry.price) || 0;
-    return total + qty * price;
-  }, 0).toFixed(2);
+  const totalAmount = expenses
+    .reduce((total, entry) => {
+      const qty = parseFloat(entry.quantity) || 0;
+      const price = parseFloat(entry.price) || 0;
+      return total + qty * price;
+    }, 0)
+    .toFixed(2);
 
   const handleDeleteEntry = async (id) => {
     const toastId = toast.warning(
@@ -142,7 +158,7 @@ export default function ExpensePage() {
                 const itemRef = ref(getDatabase(), `expenses/${user.uid}/${id}`);
                 await remove(itemRef);
 
-                const updated = expenses.filter(item => item.id !== id);
+                const updated = expenses.filter((item) => item.id !== id);
                 setExpenses(updated);
                 toast.success('Expense entry deleted successfully.');
 
@@ -173,21 +189,42 @@ export default function ExpensePage() {
     );
   };
 
+
   return (
     <>
       <TopNav />
       <div className="container d-flex justify-content-center my-4">
-        <div className="card shadow p-4" style={{ width: '100%', maxWidth: '600px' }}>
+        <div
+          className="card shadow p-4"
+          style={{ width: '100%', maxWidth: '600px' }}
+        >
           <h3 className="fw-bold text-center mb-4">My Expenses</h3>
 
-          <div className="rounded-4 text-white text-center p-4 mb-4" style={{ background: 'linear-gradient(to right, rgb(230, 48, 48), rgb(245, 116, 116))', borderRadius: '1.5rem', boxShadow: '0 3px 10px rgba(140, 17, 17, 0.69)' }}>
+          <div
+            className="rounded-4 text-white text-center p-4 mb-4"
+            style={{
+              background:
+                'linear-gradient(to right, rgb(230, 48, 48), rgb(245, 116, 116))',
+              borderRadius: '1.5rem',
+              boxShadow: '0 3px 10px rgba(140, 17, 17, 0.69)',
+            }}
+          >
             <p className="mb-1">Total Expenses</p>
-            <h2 className="fw-bold">{currency.symbol}{formatAmount(totalAmount)}</h2>
-            <small className="text-white-70 fw-semibold">{filter === 'All Time' ? 'All Time' : filter}</small>
+            <h2 className="fw-bold">
+              {currency.symbol}
+              {formatAmount(totalAmount)}
+            </h2>
+            <small className="text-white-70 fw-semibold">
+              {filter === 'All Time' ? 'All Time' : filter}
+            </small>
           </div>
 
           <div className="mb-3">
-            <select className="form-select mb-2" value={filter} onChange={(e) => setFilter(e.target.value)}>
+            <select
+              className="form-select mb-2"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            >
               <option>Today</option>
               <option>This Week</option>
               <option>This Month</option>
@@ -197,21 +234,45 @@ export default function ExpensePage() {
 
             {filter === 'Custom Range' && (
               <div className="d-flex gap-2 mb-2">
-                <input type="date" className="form-control" value={customRange.start} onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))} />
-                <input type="date" className="form-control" value={customRange.end} onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))} />
+                <input
+                  type="date"
+                  className="form-control"
+                  value={customRange.start}
+                  onChange={(e) =>
+                    setCustomRange((prev) => ({ ...prev, start: e.target.value }))
+                  }
+                />
+                <input
+                  type="date"
+                  className="form-control"
+                  value={customRange.end}
+                  onChange={(e) =>
+                    setCustomRange((prev) => ({ ...prev, end: e.target.value }))
+                  }
+                />
               </div>
             )}
 
-            <input type="text" className="form-control mb-2" placeholder="Search by item or supplier..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input
+              type="text"
+              className="form-control mb-2"
+              placeholder="Search by item or supplier..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
 
           <div className="mt-4">
             <div className="d-flex justify-content-between align-items-center mb-2">
               <h6 className="fw-bold mb-0">Expense Entries</h6>
-              <span className="badge bg-light text-dark">{expenses.length} {expenses.length === 1 ? 'Entry' : 'Entries'}</span>
+              <span className="badge bg-light text-dark">
+                {expenses.length} {expenses.length === 1 ? 'Entry' : 'Entries'}
+              </span>
             </div>
 
-            {expenses.length === 0 && <p className="text-muted">No expenses to show.</p>}
+            {expenses.length === 0 && (
+              <p className="text-muted">No expenses to show.</p>
+            )}
 
             {expenses.map((entry) => {
               const qty = parseFloat(entry.quantity) || 0;
@@ -219,21 +280,48 @@ export default function ExpensePage() {
               const total = qty * price;
 
               return (
-                <div key={entry.id} className="p-3 mb-3 bg-white rounded shadow-sm border">
+                <div
+                  key={entry.id}
+                  className="p-3 mb-3 bg-white rounded shadow-sm border"
+                >
                   <div className="d-flex justify-content-between">
                     <div>
-                      <strong className="mb-1 d-block">{entry.name || 'Unnamed Item'}</strong>
-                      <div className="text-muted small mb-2"> {entry.supplier || 'Unknown'}</div>
+                      <strong className="mb-1 d-block">
+                        {entry.name || 'Unnamed Item'}
+                      </strong>
+                      <div className="text-muted small mb-2">
+                        {entry.supplier || 'Unknown'}
+                      </div>
                     </div>
                     <div className="text-end">
-                      <div className="fw-bold text-danger mb-1">{currency.symbol}{formatAmount(total)}</div>
-                      <div className="text-muted small">{entry.date ? new Date(entry.date).toDateString() : 'No Date'}</div>
+                      <div className="fw-bold text-danger mb-1">
+                        {currency.symbol}
+                        {formatAmount(total)}
+                      </div>
+                      <div className="text-muted small">
+                        {entry.date
+                          ? new Date(entry.date).toDateString()
+                          : 'No Date'}
+                      </div>
                     </div>
                   </div>
 
                   <div className="d-flex justify-content-between align-items-center mt-3">
-                    <button className="btn btn-sm btn-outline-primary" onClick={() => { setSelectedEntry(entry); setShowModal(true); }}>Details</button>
-                    <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteEntry(entry.id)}>Delete Entry</button>
+                    <button
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={() => {
+                        setSelectedEntry(entry);
+                        setShowModal(true);
+                      }}
+                    >
+                      Details
+                    </button>
+                    <button
+                      className="btn btn-sm btn-outline-danger"
+                      onClick={() => handleDeleteEntry(entry.id)}
+                    >
+                      Delete Entry
+                    </button>
                   </div>
                 </div>
               );
@@ -242,7 +330,13 @@ export default function ExpensePage() {
         </div>
       </div>
 
-      <DetailsModal show={showModal} onClose={() => setShowModal(false)} entry={selectedEntry} type="expense" title="Expense Details" />
+      <DetailsModal
+        show={showModal}
+        onClose={() => setShowModal(false)}
+        entry={selectedEntry}
+        type="expense"
+        title="Expense Details"
+      />
     </>
   );
 }

@@ -1,9 +1,13 @@
 import { useNavigate } from 'react-router-dom';
-import { signInWithPopup, signInAnonymously } from 'firebase/auth';
+import {
+  signInWithPopup,
+  signInAnonymously,
+  setPersistence,
+  browserLocalPersistence
+} from 'firebase/auth';
 import { auth, provider, db } from '../firebase/firebase';
 import { ref, set } from 'firebase/database';
 import { useState } from 'react';
-
 
 export default function Login() {
   const navigate = useNavigate();
@@ -11,26 +15,18 @@ export default function Login() {
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [authError, setAuthError] = useState('');
 
-  const saveToRxDB = async (userData) => {
-    try {
-      const dbInstance = await initDatabase();
-      await dbInstance.users.upsert(userData);
-    } catch (error) {
-      console.error('RxDB Save Error:', error);
-    }
-  };
-
   // Manual Login
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      await setPersistence(auth, browserLocalPersistence); // ✅ Added
       const result = await signInAnonymously(auth);
       const user = result.user;
 
       const userData = {
         uid: user.uid,
         businessName,
-        contact: emailOrPhone,
+        contact: emailOrPhone.trim(),
         method: 'manual',
         loginTime: new Date().toISOString()
       };
@@ -40,7 +36,7 @@ export default function Login() {
         createdAt: new Date().toISOString()
       });
 
-      await saveToRxDB(userData);
+      // Removed RxDB saving for login as per instructions
       navigate('/dashboard');
     } catch (error) {
       console.error('Manual Sign-In Error:', error);
@@ -51,6 +47,7 @@ export default function Login() {
   // Google Sign-In
   const handleGoogleSignIn = async () => {
     try {
+      await setPersistence(auth, browserLocalPersistence); // ✅ Added
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
@@ -67,7 +64,7 @@ export default function Login() {
         createdAt: new Date().toISOString()
       });
 
-      await saveToRxDB(userData);
+      // Removed RxDB saving for login as per instructions
       navigate('/dashboard');
     } catch (error) {
       console.error('Google Sign-In Error:', error);
@@ -86,7 +83,6 @@ export default function Login() {
           </div>
         )}
 
-        {/* Manual Login */}
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="form-label fw-semibold">Business Name</label>
@@ -113,7 +109,6 @@ export default function Login() {
           </button>
         </form>
 
-        {/* Google Login */}
         <button
           className="btn btn-light border d-flex align-items-center justify-content-center gap-2 w-100"
           onClick={handleGoogleSignIn}
