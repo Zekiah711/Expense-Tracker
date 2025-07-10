@@ -2,28 +2,23 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import TopNav from '../components/TopNav';
 import DetailsModal from '../components/DetailsModal';
-import currency from '../utils/currency';
+import ExpenseCard from '../components/ExpenseCard'; // ✅ Import the card
 import { getDatabase, ref, remove, get } from 'firebase/database';
 import { getAuth } from 'firebase/auth';
 
 const LOCAL_KEY = 'todays_expenses';
 
-const getTodayDateString = () =>
-  new Date().toLocaleDateString('en-CA'); // Local YYYY-MM-DD
+const getTodayDateString = () => new Date().toLocaleDateString('en-CA');
 
 const getTodayExpensesFromLocal = () => {
   const data = localStorage.getItem(LOCAL_KEY);
   if (!data) return null;
-
   try {
     const parsed = JSON.parse(data);
-    if (parsed.date === getTodayDateString()) {
-      return parsed.expenses;
-    }
+    if (parsed.date === getTodayDateString()) return parsed.expenses;
   } catch {
     return null;
   }
-
   return null;
 };
 
@@ -42,9 +37,6 @@ export default function ExpensePage() {
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
   const [showModal, setShowModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
-
-  const formatAmount = (amount) =>
-    Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2 });
 
   useEffect(() => {
     const loadExpenses = async () => {
@@ -83,6 +75,7 @@ export default function ExpensePage() {
         const allExpenses = Object.entries(data).map(([key, value]) => ({
           ...value,
           id: key,
+          type: 'expense' // ✅ Attach type
         }));
 
         const todayStr = getTodayDateString();
@@ -93,10 +86,8 @@ export default function ExpensePage() {
           const entryDateStr = new Date(entry.date).toLocaleDateString('en-CA');
 
           const isToday = entryDateStr === todayStr;
-          const isThisWeek =
-            (new Date() - new Date(entry.date)) <= 7 * 24 * 60 * 60 * 1000;
-          const isThisMonth =
-            todayStr.slice(0, 7) === entryDateStr.slice(0, 7);
+          const isThisWeek = (new Date() - new Date(entry.date)) <= 7 * 24 * 60 * 60 * 1000;
+          const isThisMonth = todayStr.slice(0, 7) === entryDateStr.slice(0, 7);
           const isCustomRange =
             filter === 'Custom Range' &&
             startDateStr &&
@@ -113,7 +104,7 @@ export default function ExpensePage() {
 
           const matchesSearch =
             (entry.name?.toLowerCase() || '').includes(search.toLowerCase()) ||
-            (entry.supplier?.toLowerCase() || '').includes(search.toLowerCase());
+            (entry.partyName?.toLowerCase() || '').includes(search.toLowerCase());
 
           return matchesDate && matchesSearch;
         });
@@ -125,22 +116,12 @@ export default function ExpensePage() {
         }
       } catch (err) {
         console.error('Error loading expenses:', err);
-        if (useCache) {
-          setExpenses(cached);
-        }
+        if (useCache) setExpenses(cached);
       }
     };
 
     loadExpenses();
   }, [filter, search, customRange]);
-
-  const totalAmount = expenses
-    .reduce((total, entry) => {
-      const qty = parseFloat(entry.quantity) || 0;
-      const price = parseFloat(entry.price) || 0;
-      return total + qty * price;
-    }, 0)
-    .toFixed(2);
 
   const handleDeleteEntry = async (id) => {
     const toastId = toast.warning(
@@ -154,14 +135,11 @@ export default function ExpensePage() {
               try {
                 const user = getAuth().currentUser;
                 if (!user) return;
-
                 const itemRef = ref(getDatabase(), `expenses/${user.uid}/${id}`);
                 await remove(itemRef);
-
                 const updated = expenses.filter((item) => item.id !== id);
                 setExpenses(updated);
                 toast.success('Expense entry deleted successfully.');
-
                 if (filter === 'Today' && !search) {
                   saveTodayExpensesToLocal(updated);
                 }
@@ -173,10 +151,7 @@ export default function ExpensePage() {
           >
             Yes, Delete
           </button>
-          <button
-            className="btn btn-sm btn-secondary"
-            onClick={() => toast.dismiss(toastId)}
-          >
+          <button className="btn btn-sm btn-secondary" onClick={() => toast.dismiss(toastId)}>
             Cancel
           </button>
         </div>
@@ -189,30 +164,21 @@ export default function ExpensePage() {
     );
   };
 
-
   return (
     <>
       <TopNav />
       <div className="container d-flex justify-content-center my-4">
-        <div
-          className="card shadow p-4"
-          style={{ width: '100%', maxWidth: '600px' }}
-        >
+        <div className="card shadow p-4" style={{ width: '100%', maxWidth: '600px' }}>
           <h3 className="fw-bold text-center mb-4">My Expenses</h3>
 
-          <div
-            className="rounded-4 text-white text-center p-4 mb-4"
-            style={{
-              background:
-                'linear-gradient(to right, rgb(230, 48, 48), rgb(245, 116, 116))',
-              borderRadius: '1.5rem',
-              boxShadow: '0 3px 10px rgba(140, 17, 17, 0.69)',
-            }}
-          >
+          <div className="rounded-4 text-white text-center p-4 mb-4" style={{
+            background: 'linear-gradient(to right, rgb(230, 48, 48), rgb(245, 116, 116))',
+            borderRadius: '1.5rem',
+            boxShadow: '0 3px 10px rgba(140, 17, 17, 0.69)',
+          }}>
             <p className="mb-1">Total Expenses</p>
             <h2 className="fw-bold">
-              {currency.symbol}
-              {formatAmount(totalAmount)}
+              ₦{expenses.reduce((total, e) => total + (parseFloat(e.price) * parseFloat(e.quantity) || 0), 0).toFixed(2)}
             </h2>
             <small className="text-white-70 fw-semibold">
               {filter === 'All Time' ? 'All Time' : filter}
@@ -238,17 +204,13 @@ export default function ExpensePage() {
                   type="date"
                   className="form-control"
                   value={customRange.start}
-                  onChange={(e) =>
-                    setCustomRange((prev) => ({ ...prev, start: e.target.value }))
-                  }
+                  onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))}
                 />
                 <input
                   type="date"
                   className="form-control"
                   value={customRange.end}
-                  onChange={(e) =>
-                    setCustomRange((prev) => ({ ...prev, end: e.target.value }))
-                  }
+                  onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))}
                 />
               </div>
             )}
@@ -270,43 +232,13 @@ export default function ExpensePage() {
               </span>
             </div>
 
-            {expenses.length === 0 && (
+            {expenses.length === 0 ? (
               <p className="text-muted">No expenses to show.</p>
-            )}
-
-            {expenses.map((entry) => {
-              const qty = parseFloat(entry.quantity) || 0;
-              const price = parseFloat(entry.price) || 0;
-              const total = qty * price;
-
-              return (
-                <div
-                  key={entry.id}
-                  className="p-3 mb-3 bg-white rounded shadow-sm border"
-                >
-                  <div className="d-flex justify-content-between">
-                    <div>
-                      <strong className="mb-1 d-block">
-                        {entry.name || 'Unnamed Item'}
-                      </strong>
-                      <div className="text-muted small mb-2">
-                        {entry.supplier || 'Unknown'}
-                      </div>
-                    </div>
-                    <div className="text-end">
-                      <div className="fw-bold text-danger mb-1">
-                        {currency.symbol}
-                        {formatAmount(total)}
-                      </div>
-                      <div className="text-muted small">
-                        {entry.date
-                          ? new Date(entry.date).toDateString()
-                          : 'No Date'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="d-flex justify-content-between align-items-center mt-3">
+            ) : (
+              expenses.map((entry) => (
+                <div key={entry.id}>
+                  <ExpenseCard item={entry} />
+                  <div className="d-flex justify-content-between align-items-center mb-4">
                     <button
                       className="btn btn-sm btn-outline-primary"
                       onClick={() => {
@@ -324,8 +256,8 @@ export default function ExpensePage() {
                     </button>
                   </div>
                 </div>
-              );
-            })}
+              ))
+            )}
           </div>
         </div>
       </div>

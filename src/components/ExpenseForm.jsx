@@ -39,10 +39,6 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
     }
   }, [storageKey]);
 
-  useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(partyOptions));
-  }, [partyOptions, storageKey]);
-
   const addItem = () => {
     setItems([...items, { name: '', quantity: '', price: '', note: '', partyName: '', partyLocation: '', partyPhone: '', partyEmail: '' }]);
   };
@@ -84,8 +80,8 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
       setLoading(true);
       const dbRef = ref(db, isSale ? `sales/${user.uid}` : `expenses/${user.uid}`);
 
-      const savePromises = items.map(item => {
-        return push(dbRef, {
+      const savePromises = items.map(item =>
+        push(dbRef, {
           name: item.name,
           quantity: item.quantity,
           price: parseFloat(item.price),
@@ -97,8 +93,8 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
           date,
           createdAt: new Date().toISOString(),
           userId: user.uid
-        });
-      });
+        })
+      );
 
       await Promise.all(savePromises);
       toast.success(`${items.length} ${recordType.toLowerCase()} item${items.length > 1 ? 's' : ''} saved successfully.`);
@@ -111,6 +107,13 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteParty = (nameToDelete) => {
+    const updated = partyOptions.filter(p => p.name !== nameToDelete);
+    setPartyOptions(updated);
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+    toast.success(`${label} deleted from list.`);
   };
 
   const overallTotal = items.reduce((sum, item) => {
@@ -215,6 +218,24 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
               ))}
               <option value="__add_new__">+ Add New {label}</option>
             </select>
+
+            {partyOptions.length > 0 && (
+              <div className="mt-2">
+                <button
+                  className="btn btn-sm btn-outline-danger"
+                  onClick={() => {
+                    const last = item.partyName;
+                    if (last) {
+                      handleDeleteParty(last);
+                    } else {
+                      toast.warn(`Select a ${label.toLowerCase()} to delete.`);
+                    }
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ))}
@@ -235,7 +256,9 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
         />
       </div>
 
-      <div className="rounded-4 text-white text-center p-4 mb-4 total-box">
+      <div
+        className="rounded-4 text-white text-center p-4 mb-4 total-box"
+      >
         <p className="mb-1">Total Amount</p>
         <h2 className="fw-bold">
           {currency.symbol}
@@ -305,7 +328,10 @@ export default function ExpenseForm({ recordType = 'Expense' }) {
                         location: newPartyData.location.trim(),
                         email: newPartyData.email.trim()
                       };
-                      setPartyOptions(prev => [...prev, newEntry]);
+                      const updatedList = [...partyOptions, newEntry];
+                      setPartyOptions(updatedList);
+                      localStorage.setItem(storageKey, JSON.stringify(updatedList));
+
                       if (activeItemIndex !== null) {
                         handleChange(activeItemIndex, 'partyName', newEntry.name);
                         handleChange(activeItemIndex, 'partyPhone', newEntry.phone);

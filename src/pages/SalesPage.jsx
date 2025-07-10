@@ -249,42 +249,42 @@ export default function SalesPage() {
               const total = qty * price;
 
               return (
-                <div key={entry._id} className="p-3 mb-3 bg-white rounded shadow-sm border">
-                  <div className="d-flex justify-content-between">
-                    <div>
-                      <strong className="mb-1 d-block">{entry.name || 'Unnamed Item'}</strong>
-                      <div className="text-muted small mb-2">
-                        {entry.supplier || 'Unknown'}
-                      </div>
-                    </div>
-                    <div className="text-end">
-                      <div className="fw-bold text-success mb-1">
-                        {currency.symbol}{formatAmount(total)}
-                      </div>
-                      <div className="text-muted small">
-                        {entry.date ? new Date(entry.date).toDateString() : 'No Date'}
-                      </div>
+               <div key={entry._id} className="p-3 mb-3 bg-white rounded shadow-sm border">
+                <div className="d-flex justify-content-between">
+                  <div>
+                    <strong className="mb-1 d-block">{entry.name || 'Unnamed Item'}</strong>
+                    <div className="text-muted small mb-2">
+                      {entry.partyName || 'Unknown'}
                     </div>
                   </div>
-
-                  <div className="d-flex justify-content-between align-items-center mt-3">
-                    <button
-                      className="btn btn-sm btn-outline-primary"
-                      onClick={() => {
-                        setSelectedEntry(entry);
-                        setShowModal(true);
-                      }}
-                    >
-                      Details
-                    </button>
-                    <button
-                      className="btn btn-sm btn-outline-danger"
-                      onClick={() => handleDeleteEntry(entry._id)}
-                    >
-                      Delete Entry
-                    </button>
+                  <div className="text-end">
+                    <div className="fw-bold text-success mb-1">
+                      {currency.symbol}{formatAmount(total)}
+                    </div>
+                    <div className="text-muted small">
+                      {entry.date ? new Date(entry.date).toDateString() : 'No Date'}
+                    </div>
                   </div>
                 </div>
+
+                <div className="d-flex justify-content-between align-items-center mt-3">
+                  <button
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={() => {
+                      setSelectedEntry(entry);
+                      setShowModal(true);
+                    }}
+                  >
+                    Details
+                  </button>
+                  <button
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={() => handleDeleteEntry(entry._id)}
+                  >
+                    Delete Entry
+                  </button>
+                </div>
+              </div>
               );
             })}
           </div>
